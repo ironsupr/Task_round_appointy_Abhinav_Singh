@@ -14,7 +14,17 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npx tailwindcss init -p)",
+      "Bash(echo:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(set BROWSER=none)",
+      "Bash(ping:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 2032,32272 -Force\")",
+      "Bash(tasklist:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

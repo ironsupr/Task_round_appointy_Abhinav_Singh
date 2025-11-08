@@ -64,6 +64,8 @@ function Dashboard({ onLogout }) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showProductReminder, setShowProductReminder] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -305,6 +307,13 @@ function Dashboard({ onLogout }) {
             <span className="badge">{contents.length} items</span>
           </div>
           <div className="navbar-user">
+            <button
+              onClick={() => setShowImageUpload(true)}
+              className="btn-add-pic"
+              title="Upload image and extract text"
+            >
+              📷 Add Pic
+            </button>
             {user && <span>Hello, {user.username}</span>}
             <button onClick={onLogout} className="btn-logout">Logout</button>
           </div>
@@ -525,8 +534,308 @@ function Dashboard({ onLogout }) {
           }}
         />
       )}
+
+      {/* Image Upload Modal */}
+      {showImageUpload && (
+        <ImageUploadModal
+          onClose={() => {
+            setShowImageUpload(false);
+            setIsProcessingImage(false);
+          }}
+          onUpload={async (imageFile, imagePreview) => {
+            setIsProcessingImage(true);
+            try {
+              // Process the image with OCR
+              const result = await processImageWithOCR(imageFile, imagePreview);
+
+              if (result.success) {
+                // Refresh the content list
+                await fetchContents();
+                alert(`Successfully extracted and saved ${result.contentType === 'todo' ? 'todo list' : 'article'}`);
+              }
+
+              setShowImageUpload(false);
+            } catch (error) {
+              console.error('Error processing image:', error);
+              alert('Failed to process image. Please try again.');
+            } finally {
+              setIsProcessingImage(false);
+            }
+          }}
+          isProcessing={isProcessingImage}
+        />
+      )}
     </div>
   );
+}
+
+// Image Upload Modal Component
+function ImageUploadModal({ onClose, onUpload, isProcessing }) {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleFileSelect = (file) => {
+    if (file && file.type.startsWith('image/')) {
+      setSelectedFile(file);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      alert('Please select a valid image file');
+    }
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleUpload = () => {
+    if (selectedFile && imagePreview) {
+      onUpload(selectedFile, imagePreview);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="image-upload-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📷 Upload Image</h2>
+          <button className="modal-close" onClick={onClose} disabled={isProcessing}>✕</button>
+        </div>
+
+        <div className="modal-body">
+          {!imagePreview ? (
+            <div
+              className={`upload-dropzone ${dragActive ? 'drag-active' : ''}`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <div className="dropzone-content">
+                <div className="upload-icon">📸</div>
+                <h3>Drag & Drop Image Here</h3>
+                <p>or</p>
+                <label className="file-select-button">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileSelect(e.target.files[0])}
+                    style={{ display: 'none' }}
+                  />
+                  Choose Image
+                </label>
+                <p className="upload-hint">Supports: JPG, PNG, GIF, WebP</p>
+              </div>
+            </div>
+          ) : (
+            <div className="image-preview-section">
+              <img src={imagePreview} alt="Preview" className="image-preview" />
+
+              <div className="preview-info">
+                <h4>Image Ready for Processing</h4>
+                <p>I'll extract text using OCR and:</p>
+                <ul>
+                  <li>✅ Detect if it's a todo list format</li>
+                  <li>📄 Otherwise save as an article</li>
+                  <li>🔍 Extract any meaningful content</li>
+                </ul>
+              </div>
+
+              {!isProcessing && (
+                <button
+                  className="change-image-btn"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setImagePreview(null);
+                  }}
+                >
+                  Choose Different Image
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="modal-actions">
+            <button
+              className="btn-cancel"
+              onClick={onClose}
+              disabled={isProcessing}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleUpload}
+              disabled={!selectedFile || isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <span className="spinner-small"></span>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <span>🔍</span>
+                  Extract Text
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Process image with OCR
+async function processImageWithOCR(imageFile, imagePreview) {
+  try {
+    const token = localStorage.getItem(APP_CONFIG.TOKEN_KEY);
+
+    // Convert image to base64
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    // Send to backend for OCR processing
+    const response = await fetch(`${API_ENDPOINTS.OCR_PROCESS}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+
+      // Backend already detected if it's a todo list and formatted it
+      const isTodoList = result.is_todo_list;
+      const extractedText = result.text;
+
+      // Prepare content for saving
+      const contentType = isTodoList ? 'todo' : 'article';
+      const title = isTodoList ?
+        `Todo List - ${new Date().toLocaleDateString()}` :
+        extractedText.split('\n')[0].substring(0, 100) || 'Extracted Text';
+
+      // Save the content
+      const saveResponse = await fetch(API_ENDPOINTS.CONTENT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content_type: contentType,
+          title: title,
+          raw_data: extractedText,
+          source_url: null,
+          metadata: {
+            source: 'image_ocr',
+            original_filename: imageFile.name,
+            ocr_confidence: result.confidence,
+            extracted_at: new Date().toISOString(),
+            ...result.metadata
+          }
+        })
+      });
+
+      if (saveResponse.ok) {
+        return {
+          success: true,
+          contentType: contentType,
+          text: extractedText
+        };
+      }
+    } else {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to process image');
+    }
+
+    throw new Error('Failed to save content');
+  } catch (error) {
+    console.error('OCR processing error:', error);
+    throw error;
+  }
+}
+
+// Detect if text looks like a todo list
+function detectTodoList(text) {
+  const lines = text.split('\n');
+  let todoIndicators = 0;
+  let totalLines = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      totalLines++;
+
+      // Check for common todo list patterns
+      if (
+        trimmed.match(/^[-*•]\s+/i) ||                    // Bullet points
+        trimmed.match(/^\d+\.\s+/i) ||                    // Numbered lists
+        trimmed.match(/^\[[\sx]\]/i) ||                   // Checkboxes
+        trimmed.match(/^(todo|task|done|pending):/i) ||   // Keywords
+        trimmed.match(/^✓|✔|☐|☑|⬜|✅/i)                 // Unicode checkmarks
+      ) {
+        todoIndicators++;
+      }
+    }
+  }
+
+  // If more than 40% of lines look like todo items, consider it a todo list
+  return totalLines > 0 && (todoIndicators / totalLines) > 0.4;
+}
+
+// Format text as a todo list
+function formatAsTodoList(text) {
+  const lines = text.split('\n');
+  const formattedLines = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      // Remove existing bullets/numbers and add checkbox format
+      let cleanedLine = trimmed
+        .replace(/^[-*•]\s+/i, '')
+        .replace(/^\d+\.\s+/i, '')
+        .replace(/^\[[\sx]\]\s*/i, '')
+        .replace(/^✓|✔|☐|☑|⬜|✅\s*/i, '');
+
+      // Check if line contains "done", "completed", checkmark, etc.
+      const isCompleted = trimmed.match(/\[x\]/i) ||
+                         trimmed.match(/^✓|✔|☑|✅/i) ||
+                         trimmed.toLowerCase().includes('done') ||
+                         trimmed.toLowerCase().includes('completed');
+
+      formattedLines.push(`- [${isCompleted ? 'x' : ' '}] ${cleanedLine}`);
+    }
+  }
+
+  return formattedLines.join('\n');
 }
 
 // Product Reminder Modal Component

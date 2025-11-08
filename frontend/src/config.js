@@ -23,6 +23,9 @@ export const API_ENDPOINTS = {
     REMINDER_BY_ID: (id) => `${API_BASE_URL}/api/reminders/${id}`,
     PENDING_REMINDERS: `${API_BASE_URL}/api/reminders/pending/check`,
     MARK_REMINDER_SENT: (id) => `${API_BASE_URL}/api/reminders/${id}/mark-sent`,
+
+    // OCR endpoint
+    OCR_PROCESS: `${API_BASE_URL}/api/ocr/process`,
 };
 
 // You can also add other configuration here

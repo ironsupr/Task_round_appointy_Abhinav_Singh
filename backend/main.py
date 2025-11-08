@@ -30,6 +30,8 @@ from vector_db import (
     search_similar_content,
     delete_content_vector
 )
+from ocr_service import extract_text_from_image, format_as_todo_list
+from fastapi import File, UploadFile
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -552,6 +554,58 @@ def mark_reminder_sent(
     db.commit()
 
     return {"message": "Reminder marked as sent"}
+
+
+# OCR endpoint
+@app.post("/api/ocr/process")
+async def process_image_ocr(
+    image: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Process an uploaded image with OCR to extract text.
+    Automatically detects if it's a todo list.
+    """
+    try:
+        # Read image data
+        image_data = await image.read()
+
+        # Extract text using OCR
+        ocr_result = extract_text_from_image(image_data)
+
+        if not ocr_result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to process image: {ocr_result.get('error', 'Unknown error')}"
+            )
+
+        # Format as todo list if detected
+        if ocr_result["is_todo_list"]:
+            formatted_text = format_as_todo_list(ocr_result["text"])
+        else:
+            formatted_text = ocr_result["text"]
+
+        return {
+            "success": True,
+            "text": formatted_text,
+            "is_todo_list": ocr_result["is_todo_list"],
+            "confidence": ocr_result.get("confidence", 0),
+            "metadata": {
+                "word_count": ocr_result.get("word_count", 0),
+                "line_count": ocr_result.get("line_count", 0),
+                "original_filename": image.filename,
+                "content_type": image.content_type
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"OCR processing error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing image: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

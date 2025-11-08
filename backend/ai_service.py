@@ -473,7 +473,7 @@ def classify_content_type(title: str, content: str, url: str) -> str:
     # Check for known patterns
     if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
         return 'video'
-    elif 'amazon.com' in url_lower or 'ebay.com' in url_lower or 'shop' in url_lower:
+    elif 'amazon.in' in url_lower or 'ebay.com' in url_lower or 'shop' in url_lower:
         return 'product'
     elif 'github.com' in url_lower and '/issues/' in url_lower:
         return 'todo'
