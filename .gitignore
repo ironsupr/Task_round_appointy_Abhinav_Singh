@@ -50,3 +50,12 @@ The Vision.md
 
 
 .claude/settings.local.json
+CODEBASE_ANALYSIS.md
+FEATURE_READINESS_TODO.md
+.gitignore
+IMPLEMENTATION_SUMMARY.md
+nul
+test_extension_api.html
+test_save.py
+VECTOR_DB_AND_MULTIMODAL_GUIDE.md
+.claude/settings.local.json
