@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_ENDPOINTS, APP_CONFIG } from '../config';
+import { API_ENDPOINTS } from '../config';
 import './Login.css';
 
 function Login({ onLogin }) {

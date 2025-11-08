@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ContentCard from '../components/ContentCard';
+import { HoverEffect } from '../components/ui/card-hover-effect';
 import SearchBar from '../components/SearchBar';
 import { API_ENDPOINTS, APP_CONFIG } from '../config';
 import './Dashboard.css';
@@ -90,10 +90,6 @@ function Dashboard({ onLogout }) {
   };
 
   const handleDelete = async (contentId) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) {
-      return;
-    }
-
     try {
       const token = localStorage.getItem(APP_CONFIG.TOKEN_KEY);
       const response = await fetch(API_ENDPOINTS.CONTENT_BY_ID(contentId), {
@@ -151,15 +147,10 @@ function Dashboard({ onLogout }) {
             </p>
           </div>
         ) : (
-          <div className="content-grid">
-            {filteredContents.map(content => (
-              <ContentCard
-                key={content.id}
-                content={content}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
+          <HoverEffect
+            items={filteredContents}
+            onDelete={handleDelete}
+          />
         )}
       </div>
     </div>

@@ -26,8 +26,11 @@ export const APP_CONFIG = {
     DEFAULT_CONTENT_LIMIT: 100,
 };
 
-export default {
+// Default export for convenience
+const config = {
     API_BASE_URL,
     API_ENDPOINTS,
     APP_CONFIG,
 };
+
+export default config;
