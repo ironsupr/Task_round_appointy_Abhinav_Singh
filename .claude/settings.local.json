@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(icon.txt)",
+      "Bash(dir:*)",
+      "Bash(python:*)",
+      "Bash(tree:*)",
+      "Bash(nul)",
+      "Bash(pip install:*)",
+      "Bash(uvicorn:*)",
+      "Bash(npm start)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

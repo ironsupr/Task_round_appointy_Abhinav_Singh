@@ -1,0 +1,27 @@
+NOTE: Extension Icon Setup
+==========================
+
+The extension requires PNG icons. Currently we have icon.svg.
+
+Quick Fix Options:
+
+1. Online Converter:
+   - Go to https://convertio.co/svg-png/
+   - Upload icon.svg
+   - Download as PNG
+   - Save as icon.png in this folder
+
+2. Use ImageMagick (if installed):
+   magick icon.svg -resize 128x128 icon.png
+
+3. Use a placeholder:
+   - Create a simple 128x128 PNG with "S" text
+   - Any image editor works
+
+For now, the extension will work but may show a default icon.
+Once you add icon.png, reload the extension in chrome://extensions/
+
+Required sizes for production:
+- 16x16 (toolbar)
+- 48x48 (extension management)
+- 128x128 (Chrome Web Store)

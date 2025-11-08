@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synapse</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 400px;
+      min-height: 500px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+
+    .container {
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .auth-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e1e8ed;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 10px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f7fafc;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+
+    .btn-secondary:hover {
+      background: #667eea;
+      color: white;
+    }
+
+    .capture-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .page-info {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f7fafc;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .page-info h3 {
+      font-size: 16px;
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    .page-info p {
+      font-size: 12px;
+      color: #666;
+      word-break: break-all;
+    }
+
+    .content-type-selector {
+      margin-bottom: 15px;
+    }
+
+    .content-types {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .content-type-btn {
+      padding: 10px;
+      border: 2px solid #e1e8ed;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .content-type-btn:hover {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    .content-type-btn.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .toggle-auth {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+
+    .toggle-auth a {
+      color: #667eea;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .toggle-auth a:hover {
+      text-decoration: underline;
+    }
+
+    .user-info {
+      background: #f7fafc;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .user-info p {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .user-info strong {
+      color: #333;
+    }
+
+    #loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: white;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top: 3px solid white;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Synapse</h1>
+      <p>Your Second Brain</p>
+    </div>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <p>Processing...</p>
+    </div>
+
+    <div id="authSection" class="auth-section hidden">
+      <div id="message"></div>
+
+      <div id="loginForm">
+        <div class="form-group">
+          <label for="loginUsername">Username</label>
+          <input type="text" id="loginUsername" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="Enter password">
+        </div>
+        <button class="btn btn-primary" id="loginBtn">Login</button>
+        <div class="toggle-auth">
+          Don't have an account? <a id="showRegister">Register</a>
+        </div>
+      </div>
+
+      <div id="registerForm" class="hidden">
+        <div class="form-group">
+          <label for="registerEmail">Email</label>
+          <input type="email" id="registerEmail" placeholder="Enter email">
+        </div>
+        <div class="form-group">
+          <label for="registerUsername">Username</label>
+          <input type="text" id="registerUsername" placeholder="Choose username">
+        </div>
+        <div class="form-group">
+          <label for="registerPassword">Password</label>
+          <input type="password" id="registerPassword" placeholder="Choose password">
+        </div>
+        <button class="btn btn-primary" id="registerBtn">Register</button>
+        <div class="toggle-auth">
+          Already have an account? <a id="showLogin">Login</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="captureSection" class="capture-section hidden">
+      <div id="message2"></div>
+
+      <div class="user-info">
+        <p>Logged in as <strong id="currentUser"></strong></p>
+        <button class="btn btn-secondary" id="logoutBtn" style="margin-top: 10px; font-size: 12px; padding: 8px;">Logout</button>
+      </div>
+
+      <div class="page-info">
+        <h3 id="pageTitle">Loading...</h3>
+        <p id="pageUrl">Loading...</p>
+      </div>
+
+      <div class="content-type-selector">
+        <label style="font-weight: 600; margin-bottom: 10px; display: block; color: #555;">Content Type</label>
+        <div class="content-types">
+          <button class="content-type-btn" data-type="article">Article</button>
+          <button class="content-type-btn" data-type="product">Product</button>
+          <button class="content-type-btn" data-type="video">Video</button>
+          <button class="content-type-btn" data-type="todo">Todo</button>
+          <button class="content-type-btn active" data-type="note">Note</button>
+          <button class="content-type-btn" data-type="quote">Quote</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="saveBtn">Save to Synapse</button>
+      <button class="btn btn-secondary" id="openDashboardBtn">Open Dashboard</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
