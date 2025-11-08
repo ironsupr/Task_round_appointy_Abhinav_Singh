@@ -241,19 +241,7 @@ def search_content(
         return []
 
     # Parse query with Claude to extract filters
-    contents_data = [
-        {
-            "id": c.id,
-            "title": c.title,
-            "content_type": c.content_type,
-            "raw_data": c.raw_data,
-            "metadata": c.metadata,
-            "created_at": c.created_at.isoformat()
-        }
-        for c in contents
-    ]
-
-    parsed_query = parse_search_query(search.query, contents_data)
+    parsed_query = parse_search_query(search.query)
 
     # Filter by content type from parsed query
     if parsed_query.get("content_type") and not search.content_type:

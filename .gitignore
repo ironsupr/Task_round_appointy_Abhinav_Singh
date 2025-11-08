@@ -41,3 +41,12 @@ Thumbs.db
 # Extension
 /extension/*.png
 
+COMPREHENSIVE_FIXES_2025_11_08.md
+FIXES_APPLIED_2025_11_08.md
+ENV_SETUP_GUIDE.md
+issues.md
+RUN_ALL.md
+The Vision.md
+
+
+.claude/settings.local.json
