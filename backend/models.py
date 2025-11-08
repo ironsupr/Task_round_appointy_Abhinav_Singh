@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Float, Index
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Float, Index, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -48,3 +48,24 @@ class Embedding(Base):
     vector = Column(JSON)
     model = Column(String, default="claude-3-5-sonnet")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+    __table_args__ = (
+        Index('idx_user_reminder_time', 'user_id', 'reminder_time'),
+        Index('idx_user_is_sent', 'user_id', 'is_sent'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    content_id = Column(Integer, ForeignKey("contents.id"), nullable=True, index=True)  # Optional link to content
+    title = Column(String, index=True)
+    message = Column(Text, nullable=True)
+    reminder_time = Column(DateTime, index=True)  # When to send the reminder
+    is_sent = Column(Boolean, default=False, index=True)  # Whether reminder has been sent
+    sent_at = Column(DateTime, nullable=True)  # When reminder was actually sent
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="reminders")
+    content = relationship("Content", backref="reminders")

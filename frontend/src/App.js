@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import ContentDetail from './pages/ContentDetail';
 import { API_ENDPOINTS, APP_CONFIG } from './config';
 import './App.css';
 
@@ -72,6 +73,14 @@ function App() {
           element={
             isAuthenticated ?
             <Dashboard onLogout={handleLogout} /> :
+            <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/content/:id"
+          element={
+            isAuthenticated ?
+            <ContentDetail /> :
             <Navigate to="/login" replace />
           }
         />

@@ -2,7 +2,26 @@ import { useState } from "react";
 import { cn } from "../../lib/utils";
 import { useNavigate } from "react-router-dom";
 
-export const HoverEffect = ({ items, className, onDelete }) => {
+// Helper function to highlight keywords
+function highlightKeywords(text, query) {
+  if (!text || !query) return text;
+  
+  // Extract keywords from query (remove common words)
+  const stopWords = ['the', 'a', 'an', 'in', 'on', 'at', 'for', 'to', 'of', 'show', 'find', 'get', 'from', 'about', 'my'];
+  const keywords = query.toLowerCase()
+    .split(' ')
+    .filter(word => word.length > 2 && !stopWords.includes(word));
+  
+  let highlighted = text;
+  keywords.forEach(keyword => {
+    const regex = new RegExp(`(${keyword})`, 'gi');
+    highlighted = highlighted.replace(regex, '<mark style="background-color: #fef08a; padding: 0 0.125rem; border-radius: 2px;">$1</mark>');
+  });
+  
+  return highlighted;
+}
+
+export const HoverEffect = ({ items, className, onDelete, searchQuery = '', onSetReminder }) => {
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
   return (
@@ -23,7 +42,12 @@ export const HoverEffect = ({ items, className, onDelete }) => {
             hoveredIndex={hoveredIndex}
             idx={idx}
           >
-            <Card item={item} onDelete={onDelete} />
+            <Card
+              item={item}
+              onDelete={onDelete}
+              searchQuery={searchQuery}
+              onSetReminder={onSetReminder}
+            />
           </AnimateContainer>
         </div>
       ))}
@@ -47,8 +71,48 @@ const AnimateContainer = ({ children, hoveredIndex, idx }) => {
   );
 };
 
-const Card = ({ item, onDelete }) => {
+const Card = ({ item, onDelete, searchQuery = '', onSetReminder }) => {
   const navigate = useNavigate();
+
+  // Parse todo list format
+  const parseTodoList = (rawText) => {
+    if (!rawText) return [];
+    const lines = rawText.split('\n');
+    const todos = [];
+
+    lines.forEach(line => {
+      // Match checkbox format: - [ ] or - [x]
+      const checkboxMatch = line.match(/^\s*[-*]\s*\[([x ])\]\s*(.+)$/i);
+      if (checkboxMatch) {
+        todos.push({
+          completed: checkboxMatch[1].toLowerCase() === 'x',
+          text: checkboxMatch[2].trim()
+        });
+        return;
+      }
+
+      // Match simple list format: - item or * item
+      const listMatch = line.match(/^\s*[-*]\s+(.+)$/);
+      if (listMatch) {
+        todos.push({
+          completed: false,
+          text: listMatch[1].trim()
+        });
+        return;
+      }
+
+      // If it's not empty and looks like a todo item
+      const trimmed = line.trim();
+      if (trimmed && item.content_type === 'todo') {
+        todos.push({
+          completed: false,
+          text: trimmed
+        });
+      }
+    });
+
+    return todos;
+  };
 
   const getContentTypeColor = (type) => {
     const colors = {
@@ -76,6 +140,21 @@ const Card = ({ item, onDelete }) => {
     return icons[type] || "📄";
   };
 
+  const getYouTubeVideoId = (url) => {
+    if (!url) return null;
+    const patterns = [
+      /youtube\.com\/watch\?v=([^&]+)/,
+      /youtu\.be\/([^?]+)/,
+      /youtube\.com\/embed\/([^?]+)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  };
+
   const colors = getContentTypeColor(item.content_type);
 
   const handleDelete = (e) => {
@@ -101,12 +180,33 @@ const Card = ({ item, onDelete }) => {
             {item.content_type.toUpperCase()}
           </span>
         </div>
-        <button
-          onClick={handleDelete}
-          className="text-gray-400 hover:text-red-500 transition-colors duration-200"
-          aria-label="Delete"
-        >
-          <svg
+        <div className="flex items-center gap-2">
+          {item.content_type === 'product' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSetReminder(item);
+              }}
+              className="text-gray-400 hover:text-yellow-500 transition-colors duration-200"
+              aria-label="Set Reminder"
+              title="Set price alert or reminder"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            className="text-gray-400 hover:text-red-500 transition-colors duration-200"
+            aria-label="Delete"
+          >
+            <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-5 w-5"
             viewBox="0 0 20 20"
@@ -118,18 +218,200 @@ const Card = ({ item, onDelete }) => {
               clipRule="evenodd"
             />
           </svg>
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* Title */}
-      <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-primary-600 transition-colors">
-        {item.title}
-      </h3>
+      <h3 
+        className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-primary-600 transition-colors"
+        dangerouslySetInnerHTML={{
+          __html: highlightKeywords(item.title, searchQuery)
+        }}
+      />
 
-      {/* Content Preview */}
-      <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow">
-        {item.raw_data}
-      </p>
+      {/* Relevance Score */}
+      {item.similarity_score !== undefined && item.similarity_score > 0 && (
+        <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+          <div className="text-xs text-gray-500">Relevance:</div>
+          <div className="flex items-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <span 
+                key={i} 
+                className={i < Math.round(item.similarity_score * 5) ? 'text-yellow-400' : 'text-gray-300'}
+                style={{ fontSize: '0.875rem' }}
+              >
+                ⭐
+              </span>
+            ))}
+            <span className="text-xs text-gray-600 ml-1">
+              ({(item.similarity_score * 100).toFixed(0)}%)
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Book Display with Cover */}
+      {item.content_type === "book" ? (
+        <div className="flex gap-4 mb-4">
+          {item.metadata?.cover && (
+            <div className="flex-shrink-0">
+              <img
+                src={item.metadata.cover}
+                alt={item.title}
+                className="w-20 h-28 object-cover rounded shadow-lg"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+          <div className="flex-1 flex flex-col">
+            {item.metadata?.author && (
+              <p className="text-sm text-gray-500 mb-1">
+                by <span className="font-medium text-gray-700">{item.metadata.author}</span>
+              </p>
+            )}
+            <p 
+              className="text-gray-600 text-sm line-clamp-3 flex-grow"
+              dangerouslySetInnerHTML={{
+                __html: highlightKeywords(item.raw_data, searchQuery)
+              }}
+            />
+            {item.metadata?.rating && (
+              <div className="flex items-center gap-1 mt-2">
+                <span className="text-yellow-500">★</span>
+                <span className="text-sm font-medium">{item.metadata.rating}/5</span>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : item.content_type === "video" && item.source_url && getYouTubeVideoId(item.source_url) ? (
+        <div className="mb-4" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+            <iframe
+              className="absolute top-0 left-0 w-full h-full rounded-lg"
+              src={`https://www.youtube.com/embed/${getYouTubeVideoId(item.source_url)}`}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title={item.title}
+            ></iframe>
+          </div>
+        </div>
+      ) : item.content_type === "todo" ? (
+        <div className="todo-list mb-4">
+          {parseTodoList(item.raw_data).map((todo, index) => (
+            <div key={index} className="flex items-start gap-2 mb-2">
+              <div
+                className={cn(
+                  "w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0",
+                  todo.completed
+                    ? "bg-green-500 border-green-500"
+                    : "border-gray-300"
+                )}
+              >
+                {todo.completed && (
+                  <svg
+                    className="w-3 h-3 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+              </div>
+              <span
+                className={cn(
+                  "text-sm",
+                  todo.completed ? "line-through text-gray-400" : "text-gray-700"
+                )}
+                dangerouslySetInnerHTML={{
+                  __html: highlightKeywords(todo.text, searchQuery)
+                }}
+              />
+            </div>
+          ))}
+          {parseTodoList(item.raw_data).length === 0 && (
+            <p
+              className="text-gray-600 text-sm"
+              dangerouslySetInnerHTML={{
+                __html: highlightKeywords(item.raw_data, searchQuery)
+              }}
+            />
+          )}
+        </div>
+      ) : item.content_type === "quote" ? (
+        <div className="quote-container mb-4 relative">
+          <div
+            className="quote-card p-6 rounded-lg relative"
+            style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            }}
+          >
+            <div className="absolute text-6xl text-white opacity-20 -top-2 left-2">"</div>
+            <blockquote className="relative z-10">
+              <p className="text-white text-lg italic font-light leading-relaxed mb-4">
+                {item.raw_data}
+              </p>
+              {item.metadata?.author && (
+                <footer className="text-white text-sm font-semibold text-right">
+                  — {item.metadata.author}
+                </footer>
+              )}
+            </blockquote>
+            <div className="absolute text-6xl text-white opacity-20 -bottom-8 right-2 rotate-180">"</div>
+          </div>
+        </div>
+      ) : item.content_type === "product" ? (
+        <div className="flex gap-4 mb-4">
+          {item.metadata?.image && (
+            <div className="flex-shrink-0">
+              <img
+                src={item.metadata.image}
+                alt={item.title}
+                className="w-24 h-24 object-cover rounded-lg shadow-md"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+          <div className="flex-1 flex flex-col">
+            <p
+              className="text-gray-600 text-sm line-clamp-3 flex-grow"
+              dangerouslySetInnerHTML={{
+                __html: highlightKeywords(item.raw_data, searchQuery)
+              }}
+            />
+            {item.metadata?.seller && (
+              <p className="text-xs text-gray-500 mt-2">
+                Sold by <span className="font-medium">{item.metadata.seller}</span>
+              </p>
+            )}
+            {item.metadata?.rating && (
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-yellow-500">★</span>
+                <span className="text-sm font-medium">{item.metadata.rating}</span>
+                {item.metadata?.reviews && (
+                  <span className="text-xs text-gray-500">({item.metadata.reviews} reviews)</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p
+          className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow"
+          dangerouslySetInnerHTML={{
+            __html: highlightKeywords(item.raw_data, searchQuery)
+          }}
+        />
+      )}
 
       {/* Metadata based on content type */}
       {item.content_type === "product" && item.metadata?.price && (

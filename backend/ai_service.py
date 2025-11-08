@@ -11,6 +11,8 @@ import hashlib
 from datetime import datetime, timedelta
 import time
 from collections import deque
+import requests
+import urllib.parse
 
 load_dotenv()
 
@@ -181,10 +183,8 @@ def get_embedding_from_text_cached(text_hash: str) -> List[float]:
 
 def get_embedding_from_text(text: str) -> List[float]:
     """
-    Generate a pseudo-embedding using Claude's response.
-    Since Claude doesn't have a native embedding API, we'll use a creative approach:
-    - For MVP, we'll create embeddings based on text features
-    - In production, you'd use a dedicated embedding model
+    Generate semantic embedding using SentenceTransformer.
+    Uses the multimodal_service for high-quality embeddings.
     """
     # Validate input
     is_valid, error_msg = validate_input_parameters(text=text)
@@ -200,8 +200,15 @@ def get_embedding_from_text(text: str) -> List[float]:
         logger.debug(f"Embedding cache hit for text hash: {text_hash}")
         return embedding_cache[text_hash]
 
-    # Generate embedding
-    embedding = _get_embedding_from_text_impl(text)
+    # Generate embedding using multimodal service
+    try:
+        from multimodal_service import get_text_embedding as get_semantic_embedding
+        embedding = get_semantic_embedding(text)
+        logger.info(f"Generated semantic embedding with dimension: {len(embedding)}")
+    except Exception as e:
+        logger.error(f"Error generating semantic embedding: {e}")
+        # Fallback to simple implementation
+        embedding = _get_embedding_from_text_impl(text)
 
     # Store in cache
     embedding_cache[text_hash] = embedding
@@ -316,7 +323,7 @@ Respond in JSON format:
         claude_rate_limiter.record_call()
 
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -412,7 +419,7 @@ Return top {limit} items."""
         claude_rate_limiter.record_call()
 
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             max_tokens=300,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -505,7 +512,7 @@ Respond with just the category name."""
         claude_rate_limiter.record_call()
 
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             max_tokens=10,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -530,5 +537,168 @@ def clear_caches():
     get_embedding_from_text_cached.cache_clear()
     logger.info("All caches cleared")
 
+def fetch_book_metadata(title: str, author: Optional[str] = None, isbn: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Fetch book metadata from Google Books API or Open Library API
+
+    Args:
+        title: Book title to search for
+        author: Optional author name for better matching
+        isbn: Optional ISBN for exact matching
+
+    Returns:
+        Dictionary with book metadata including cover, author, rating, etc.
+    """
+    metadata = {}
+
+    try:
+        # Try Google Books API first
+        google_books_url = "https://www.googleapis.com/books/v1/volumes"
+
+        # Build query
+        if isbn:
+            query = f"isbn:{isbn}"
+        elif author:
+            query = f"intitle:{title} inauthor:{author}"
+        else:
+            query = f"intitle:{title}"
+
+        params = {
+            "q": query,
+            "maxResults": 1,
+            "printType": "books"
+        }
+
+        response = requests.get(google_books_url, params=params, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            if data.get("totalItems", 0) > 0:
+                book = data["items"][0]["volumeInfo"]
+
+                # Extract metadata
+                metadata["title"] = book.get("title", title)
+                metadata["author"] = ", ".join(book.get("authors", []))
+                metadata["publisher"] = book.get("publisher", "")
+                metadata["publishedDate"] = book.get("publishedDate", "")
+                metadata["description"] = book.get("description", "")
+                metadata["pageCount"] = book.get("pageCount", 0)
+                metadata["categories"] = book.get("categories", [])
+
+                # Get cover image (prefer thumbnail)
+                if "imageLinks" in book:
+                    metadata["cover"] = book["imageLinks"].get("thumbnail",
+                                       book["imageLinks"].get("smallThumbnail", ""))
+                    # Use HTTPS for images
+                    if metadata["cover"] and metadata["cover"].startswith("http:"):
+                        metadata["cover"] = metadata["cover"].replace("http:", "https:")
+
+                # Get ISBN
+                if "industryIdentifiers" in book:
+                    for identifier in book["industryIdentifiers"]:
+                        if identifier["type"] in ["ISBN_13", "ISBN_10"]:
+                            metadata["isbn"] = identifier["identifier"]
+                            break
+
+                # Get rating if available
+                metadata["rating"] = book.get("averageRating", None)
+                metadata["ratingsCount"] = book.get("ratingsCount", 0)
+
+                logger.info(f"Successfully fetched book metadata from Google Books for: {title}")
+                return metadata
+
+    except requests.RequestException as e:
+        logger.error(f"Error fetching from Google Books API: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error fetching book metadata: {e}")
+
+    # Fallback to Open Library API if Google Books fails
+    try:
+        # Search for the book
+        search_url = "https://openlibrary.org/search.json"
+        params = {
+            "title": title,
+            "limit": 1
+        }
+
+        if author:
+            params["author"] = author
+
+        response = requests.get(search_url, params=params, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            if data.get("numFound", 0) > 0:
+                book = data["docs"][0]
+
+                # Extract metadata
+                metadata["title"] = book.get("title", title)
+                metadata["author"] = ", ".join(book.get("author_name", []))
+                metadata["publisher"] = ", ".join(book.get("publisher", []))
+                metadata["publishedDate"] = str(book.get("first_publish_year", ""))
+
+                # Get cover from Open Library
+                if "cover_i" in book:
+                    cover_id = book["cover_i"]
+                    metadata["cover"] = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
+                elif "isbn" in book and len(book["isbn"]) > 0:
+                    # Try to get cover by ISBN
+                    isbn = book["isbn"][0]
+                    metadata["cover"] = f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg"
+                    metadata["isbn"] = isbn
+
+                # Get ratings (Open Library doesn't provide ratings, so we'll skip)
+                metadata["rating"] = None
+
+                logger.info(f"Successfully fetched book metadata from Open Library for: {title}")
+                return metadata
+
+    except requests.RequestException as e:
+        logger.error(f"Error fetching from Open Library API: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error fetching book metadata from Open Library: {e}")
+
+    # Return whatever metadata we could gather
+    return metadata
+
+def enrich_book_content(content_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Enrich book content with metadata from APIs
+
+    Args:
+        content_data: Dictionary containing book content data
+
+    Returns:
+        Enriched content data with book metadata
+    """
+    if content_data.get("content_type") != "book":
+        return content_data
+
+    # Extract book info from content
+    title = content_data.get("title", "")
+
+    # Try to extract author from metadata or content
+    author = None
+    if "metadata" in content_data and "author" in content_data["metadata"]:
+        author = content_data["metadata"]["author"]
+
+    # Try to extract ISBN if available
+    isbn = None
+    if "metadata" in content_data and "isbn" in content_data["metadata"]:
+        isbn = content_data["metadata"]["isbn"]
+
+    # Fetch metadata
+    book_metadata = fetch_book_metadata(title, author, isbn)
+
+    # Merge with existing metadata
+    if "metadata" not in content_data:
+        content_data["metadata"] = {}
+
+    content_data["metadata"].update(book_metadata)
+
+    return content_data
+
 # Log initialization
-logger.info("AI service initialized with enhanced error handling, caching, and rate limiting")
+logger.info("AI service initialized with enhanced error handling, caching, rate limiting, and book metadata fetching")

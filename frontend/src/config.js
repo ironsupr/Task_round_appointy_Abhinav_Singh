@@ -17,6 +17,12 @@ export const API_ENDPOINTS = {
 
     // Search endpoint
     SEARCH: `${API_BASE_URL}/api/search`,
+
+    // Reminder endpoints
+    REMINDERS: `${API_BASE_URL}/api/reminders`,
+    REMINDER_BY_ID: (id) => `${API_BASE_URL}/api/reminders/${id}`,
+    PENDING_REMINDERS: `${API_BASE_URL}/api/reminders/pending/check`,
+    MARK_REMINDER_SENT: (id) => `${API_BASE_URL}/api/reminders/${id}/mark-sent`,
 };
 
 // You can also add other configuration here

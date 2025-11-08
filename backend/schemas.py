@@ -61,3 +61,32 @@ class SearchQuery(BaseModel):
 class SearchResult(BaseModel):
     content: ContentResponse
     similarity: float
+
+
+class ReminderCreate(BaseModel):
+    content_id: Optional[int] = None
+    title: str
+    message: Optional[str] = None
+    reminder_time: datetime
+
+
+class ReminderUpdate(BaseModel):
+    title: Optional[str] = None
+    message: Optional[str] = None
+    reminder_time: Optional[datetime] = None
+
+
+class ReminderResponse(BaseModel):
+    id: int
+    user_id: int
+    content_id: Optional[int] = None
+    title: str
+    message: Optional[str] = None
+    reminder_time: datetime
+    is_sent: bool
+    sent_at: Optional[datetime] = None
+    created_at: datetime
+    content: Optional[ContentResponse] = None  # Include linked content if available
+
+    class Config:
+        from_attributes = True
